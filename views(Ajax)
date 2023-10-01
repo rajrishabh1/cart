@@ -1,0 +1,70 @@
+//ADD TO CART
+
+$(document).ready(function () {
+  // Add to Cart button click event
+  $(document).on("click", ".add-to-cart", function (e) {
+        e.preventDefault();
+        // Get the csrf_token value from the hidden input field
+        var csrf_token = $('.csrf_token').val();
+        // Get the puid value from the data-puid attribute
+        var puid = $(this).data("puid");
+        var quantity = $('#qtyInput').val();
+        addToCart(puid, quantity, csrf_token);
+    });
+
+    // Function to add a product to the cart
+    function addToCart(puid, quantity, csrf_token) {
+        $.ajax({
+            type: "POST",
+            url: "<?= BASEURL ?>cr/addCart", // PHP script to handle the addition
+            dataType:"json",
+            data: { csrf_token: csrf_token, quantity: quantity, puid: puid },
+            success: function (data) {
+              //console.log(data);
+                console.log(data.success);
+                // Refresh the cart display
+                playNotificationSound();
+                showCart();
+            },
+            error: function (xhr, status, error) {
+              console.error('AJAX error:', error);
+              console.log(xhr.responseText);
+              console.log(error);
+            }
+        });
+    }
+    
+    function playNotificationSound() {
+    var audio = new Audio('<?= ASSETS ?>/files/cartnotification.mp3'); // Replace with the actual path to your audio file
+    audio.play();
+}
+
+function showCart() {
+    $.ajax({
+        type: "GET",
+        url: "<?= BASEURL ?>cr/cartCount", // PHP script to fetch the cart contents
+        dataType: "json",
+        success: function (data) {
+            // Get the total number of items
+            var totalItems = data.cartItems ? data.cartItems.length : data.cartCount;
+
+            // Check if the total is greater than or equal to 10
+            if (totalItems >= 10) {
+                $("#crt04count").text("9+"); // Display "9+" if there are 10 or more items
+            } else {
+                $("#crt04count").text(totalItems); // Display the total item count
+            }
+        }
+    });
+}
+
+
+
+
+// Initial cart display
+showCart();
+
+
+//console.log(BASEURL);
+
+});
