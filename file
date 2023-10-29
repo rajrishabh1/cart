@@ -1,1 +1,170 @@
-h
+ISSUE facing Invalid CSRF token
+
+
+try print in console
+direct b9682663fe4162b65481e588185f06d84d87e3ed2b0f55ed4d8c870af1b30e2f
+style.js:452 {"error":"Invalid CSRF token","newCsrfToken":"17612d0991eb5048a4e2d29935b5e9fe15502f2f16ca529b403a292e01e00d7b"}
+style.js:454 17612d0991eb5048a4e2d29935b5e9fe15502f2f16ca529b403a292e01e00d7b
+
+
+//HERE is the html input
+<input type="hidden" name="csrf_token" class="csrf_token" value="<?php echo CSRFHelper::generateCsrfToken(); ?>">
+
+//CSRF TOKEN class
+<?php
+class CSRFHelper {
+    public static function generateCsrfToken() {
+        // Generate a new CSRF token and set it in the session
+        $token = bin2hex(random_bytes(32));
+        $_SESSION['csrf_token'] = $token;
+        return $token;
+    }
+
+    public static function validateCsrfToken($token) {
+        // Check if the provided token matches the one in the session
+        return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+    }
+}
+?>
+
+//AJAX
+<script>
+$(document).ready(function () {
+// Register Page Form Validation And Send Data Through Ajax
+$(document).on('click', '#regCon', function (e) {
+    e.preventDefault();
+  
+    var csrf_token = $('.csrf_token').val();
+    var fullname = $('#fullname').val();
+    var std = $('.std').val();
+    var mobile = $('#mobile').val();
+    var email = $('#email').val();
+    var password = $('#password').val();
+    var error = false;
+  console.log('direct',csrf_token);
+    // Validation functions
+    function showError(field, message) {
+      $(field).nextAll('.error').first().text(message).show();
+      error = true;
+    }
+  
+    function hideError(field) {
+      $(field).nextAll('.error').first().hide();
+    }
+  
+    // Full name validation
+    if (fullname === '') {
+      showError('#fullname', 'Full name is required');
+    } else if (/^[a-zA-Z ]*$/.test(fullname) === false) {
+      showError('#fullname', 'Full name should not contain special characters');
+    } else {
+      hideError('#fullname');
+    }
+  
+    // Mobile number validation
+    if (mobile === '') {
+      showError('.std-content', 'Mobile number is required');
+    } else if (/^\d+$/.test(mobile) === false) {
+      showError('.std-content', 'Mobile number should contain only numbers');
+    } else {
+      hideError('.std-content');
+    }
+  
+    // Email validation
+    if (email === '') {
+      showError('#email', 'Email is required');
+    } else if (/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email) === false) {
+      showError('#email', 'Email is invalid');
+    } else {
+      hideError('#email');
+    }
+  
+    // Password validation
+    if (password === '') {
+      showError('#password', 'Password is required');
+    } else if (password.length < 8) {
+      showError('#password', 'Password should be at least 8 characters');
+    } else {
+      hideError('#password');
+    }
+  
+    if (error === false) {
+      // Your AJAX code here
+      var formData = new FormData();
+      formData.append('csrf_token', csrf_token);
+      formData.append('fullname', fullname);
+      formData.append('std', std);
+      formData.append('mobile', mobile);
+      formData.append('email', email);
+      formData.append('password', password);
+      register(formData);
+    }
+  });
+  
+  function register(formData) {
+    $.ajax({
+        type: "POST",
+        url: BASEURL + "register/signin",
+        data: formData,
+        processData: false,
+        contentType: false,
+        beforeSend: function () {
+        },
+        success: function (data) {
+            console.log(data);
+            data = JSON.parse(data);
+            console.log(data.newCsrfToken);
+
+            if (data.newCsrfToken) {
+                // Update the CSRF token in the form
+                $('.csrf_token').val(data.newCsrfToken);
+            }
+
+            if (data.success) {
+                console.log(data.success);
+                // Handle success case
+            } else if (data.error) {
+                // Handle error case
+                $(".e_zEZTIS").html('<p id="error_message">' + data.error + '</p>');
+            }
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+            console.log(errorThrown);
+        }
+    });
+}
+}
+</script>
+
+
+//Controllers
+//Sending User Credentials To Models For Creating New Account
+    public function signin() {
+        // Generate a new CSRF token and store it in the session
+        $newCsrfToken = CSRFHelper::generateCsrfToken();
+    
+        // Verify the CSRF token
+        if (isset($_POST['csrf_token']) && CSRFHelper::validateCsrfToken($_POST['csrf_token'])) {
+            // Extract data from the AJAX request
+            $fullname = trim($_POST['fullname']);
+            $std = trim($_POST['std']);
+            $mobile = trim($_POST['mobile']);
+            $email = trim($_POST['email']);
+            $password = $_POST['password'];
+    
+            // Call the register method in the model and pass the parameters
+            $user = $this->load_model("register");
+            $result = $user->register($fullname, $std, $mobile, $email, $password);
+    
+            if ($result) {
+                // Registration was successful
+                echo json_encode(["success" => "Registration Successful", "newCsrfToken" => $newCsrfToken]);
+            } else {
+                // Registration failed
+                echo json_encode(["error" => $_SESSION['error'], "newCsrfToken" => $newCsrfToken]);
+            }
+        } else {
+            // Invalid CSRF token, handle the error
+            echo json_encode(["error" => "Invalid CSRF token", "newCsrfToken" => $newCsrfToken]);
+        }
+    }
